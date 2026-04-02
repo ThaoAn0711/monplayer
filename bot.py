@@ -7,6 +7,7 @@ URL = "https://khandaia2.me"
 
 def get_m3u8():
     options = webdriver.ChromeOptions()
+    options.binary_location = "/usr/bin/chromium"
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -17,12 +18,11 @@ def get_m3u8():
     )
 
     driver.get(URL)
-    time.sleep(8)
+    time.sleep(20)
 
     html = driver.page_source
     driver.quit()
 
-    # tìm link m3u8
     match = re.search(r'https?://[^\s"\']+\.m3u8', html)
     if match:
         return match.group(0)
@@ -49,7 +49,7 @@ def main():
     if link:
         print("✅ Lấy được:", link)
     else:
-        print("❌ Không lấy được → dùng link rỗng")
+        print("❌ Không lấy được")
 
     create_m3u(link)
 
