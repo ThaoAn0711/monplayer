@@ -1,8 +1,10 @@
 name: Auto Run Bot
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '*/5 * * * *'   # chạy mỗi 5 phút (có thể sửa)
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -21,14 +23,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Show files (debug)
+      - name: Show files
         run: ls -R
 
       - name: Run Bot
         run: python bot.py
-        on:
-  push:
-    branches: [ main ]
-  schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
