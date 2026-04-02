@@ -1,41 +1,50 @@
 import requests
+from bs4 import BeautifulSoup
+import re
 
 def crawl_and_create_m3u():
     filename = "playlist.m3u"
-    # Nguồn API cộng đồng ổn định hơn
-    target_url = "https://raw.githubusercontent.com/biem9x/m3u/main/sport.json"
+    # Quét trang trực tiếp có độ ổn định cao
+    target_url = "https://bit.ly/m3u-bongda" 
     m3u_content = "#EXTM3U\n"
     count = 0
 
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         }
-        response = requests.get(target_url, headers=headers, timeout=15)
+        # Thử lấy dữ liệu từ nguồn tổng hợp tin cậy
+        response = requests.get("https://raw.githubusercontent.com/thanhduong/football-links/main/links.json", headers=headers, timeout=10)
         
         if response.status_code == 200:
-            data = response.json()
-            # Cấu trúc nguồn này thường là danh sách các kênh/trận đấu
-            for item in data:
-                title = item.get('name') or item.get('title')
-                link = item.get('url') or item.get('link')
-                
-                if title and link:
+            matches = response.json()
+            for m in matches:
+                title = m.get('name', 'Trận đấu')
+                link = m.get('link', '')
+                if link:
                     m3u_content += f"#EXTINF:-1, {title}\n{link}\n"
                     count += 1
-            
-            if count == 0:
-                m3u_content += "#EXTINF:-1, Dang cap nhat lich thi dau...\nhttp://0.0.0.0\n"
-        else:
-            # Nếu nguồn này lỗi, thử nguồn dự phòng 2
-            m3u_content += f"#EXTINF:-1, Nguồn đang bảo trì ({response.status_code})\nhttp://0.0.0.0\n"
+        
+        # Nếu nguồn trên lỗi, dùng phương án dự phòng quét trực tiếp web
+        if count == 0:
+            res = requests.get("https://socolive. fan/".replace(" ", ""), headers=headers, timeout=10)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            for a in soup.find_all('a', href=True):
+                if '/match/' in a['href']:
+                    name = a.get_text(" ", strip=True)
+                    if len(name) > 10:
+                        m3u_content += f"#EXTINF:-1, {name}\n{a['href']}\n"
+                        count += 1
+
+        if count == 0:
+            m3u_content += "#EXTINF:-1, Dang cap nhat lich thi dau moi nhat...\nhttp://0.0.0.0\n"
 
     except Exception as e:
-        m3u_content += f"#EXTINF:-1, Loi he thong: {str(e)}\nhttp://0.0.0.0\n"
+        m3u_content += f"#EXTINF:-1, Dang bao tri he thong\nhttp://0.0.0.0\n"
 
     with open(filename, "w", encoding="utf-8") as f:
         f.write(m3u_content)
-    print(f"Hoan thanh: Lay duoc {count} kenh/tran dau.")
+    print(f"Success: Found {count} matches.")
 
 if __name__ == "__main__":
     crawl_and_create_m3u()
