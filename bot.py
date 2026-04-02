@@ -2,49 +2,86 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
-def crawl_and_create_m3u():
-    filename = "playlist.m3u"
-    # Quét trang trực tiếp có độ ổn định cao
-    target_url = "https://bit.ly/m3u-bongda" 
-    m3u_content = "#EXTM3U\n"
-    count = 0
+# URL trang chủ
+BASE_URL = "https://khandaia2.me"
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+def get_match_links():
+    res = requests.get(BASE_URL, headers=HEADERS)
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if "/truc-tiep" in href or "/match" in href:
+            if href.startswith("/"):
+                href = BASE_URL + href
+            links.append(href)
+
+    return list(set(links))[:5]  # lấy 5 trận
+
+
+def extract_m3u8(url):
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        }
-        # Thử lấy dữ liệu từ nguồn tổng hợp tin cậy
-        response = requests.get("https://raw.githubusercontent.com/thanhduong/football-links/main/links.json", headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            matches = response.json()
-            for m in matches:
-                title = m.get('name', 'Trận đấu')
-                link = m.get('link', '')
-                if link:
-                    m3u_content += f"#EXTINF:-1, {title}\n{link}\n"
-                    count += 1
-        
-        # Nếu nguồn trên lỗi, dùng phương án dự phòng quét trực tiếp web
-        if count == 0:
-            res = requests.get("https://socolive. fan/".replace(" ", ""), headers=headers, timeout=10)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            for a in soup.find_all('a', href=True):
-                if '/match/' in a['href']:
-                    name = a.get_text(" ", strip=True)
-                    if len(name) > 10:
-                        m3u_content += f"#EXTINF:-1, {name}\n{a['href']}\n"
-                        count += 1
+        res = requests.get(url, headers=HEADERS)
+        html = res.text
 
-        if count == 0:
-            m3u_content += "#EXTINF:-1, Dang cap nhat lich thi dau moi nhat...\nhttp://0.0.0.0\n"
+        # tìm iframe trước
+        iframe = re.search(r'<iframe.*?src="(.*?)"', html)
+        if iframe:
+            iframe_url = iframe.group(1)
+            if iframe_url.startswith("//"):
+                iframe_url = "https:" + iframe_url
+
+            res = requests.get(iframe_url, headers=HEADERS)
+            html = res.text
+
+        # tìm m3u8
+        m3u8 = re.search(r'https?://[^\s"\']+\.m3u8', html)
+        if m3u8:
+            return m3u8.group(0)
 
     except Exception as e:
-        m3u_content += f"#EXTINF:-1, Dang bao tri he thong\nhttp://0.0.0.0\n"
+        print("Error:", e)
 
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(m3u_content)
-    print(f"Success: Found {count} matches.")
+    return None
+
+
+def create_m3u(channels):
+    content = "#EXTM3U\n"
+
+    for name, link in channels:
+        content += f'#EXTINF:-1 group-title="Khandaia",{name}\n{link}\n'
+
+    with open("playlist.m3u", "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+def main():
+    print("🔍 Đang lấy danh sách trận...")
+
+    matches = get_match_links()
+    channels = []
+
+    for i, link in enumerate(matches):
+        print(f"🎯 Đang xử lý: {link}")
+
+        m3u8 = extract_m3u8(link)
+        if m3u8:
+            channels.append((f"Match {i+1}", m3u8))
+            print("✅ Lấy được m3u8")
+        else:
+            print("❌ Không có m3u8")
+
+    if channels:
+        create_m3u(channels)
+        print("🔥 Đã tạo playlist.m3u")
+    else:
+        print("❌ Không lấy được link nào")
+
 
 if __name__ == "__main__":
-    crawl_and_create_m3u()
+    main()
