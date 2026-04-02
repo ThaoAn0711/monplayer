@@ -23,13 +23,22 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run bot
+      - name: Install Chrome
+        run: |
+          sudo apt update
+          sudo apt install -y chromium
+
+      - name: Install ChromeDriver
+        run: |
+          sudo apt install -y chromium-chromedriver
+
+      - name: Run Bot
         run: python bot.py
 
-      - name: Commit and Push changes
+      - name: Commit playlist
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "bot"
+          git config --global user.email "bot@github.com"
           git add playlist.m3u
-          git commit -m "Update playlist" || exit 0
+          git commit -m "update m3u" || echo "no changes"
           git push
