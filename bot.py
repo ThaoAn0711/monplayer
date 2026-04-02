@@ -1,86 +1,52 @@
-import requests
-from bs4 import BeautifulSoup
+import time
 import re
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
-# URL trang chủ
-BASE_URL = "https://khandaia2.me"
+URL = "https://khandaia2.me"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+def get_m3u8():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-def get_match_links():
-    res = requests.get(BASE_URL, headers=HEADERS)
-    soup = BeautifulSoup(res.text, "html.parser")
+    driver = webdriver.Chrome(options=chrome_options)
 
-    links = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if "/truc-tiep" in href or "/match" in href:
-            if href.startswith("/"):
-                href = BASE_URL + href
-            links.append(href)
+    driver.get(URL)
+    time.sleep(5)
 
-    return list(set(links))[:5]  # lấy 5 trận
+    # lấy toàn bộ HTML sau khi JS chạy
+    html = driver.page_source
 
+    driver.quit()
 
-def extract_m3u8(url):
-    try:
-        res = requests.get(url, headers=HEADERS)
-        html = res.text
-
-        # tìm iframe trước
-        iframe = re.search(r'<iframe.*?src="(.*?)"', html)
-        if iframe:
-            iframe_url = iframe.group(1)
-            if iframe_url.startswith("//"):
-                iframe_url = "https:" + iframe_url
-
-            res = requests.get(iframe_url, headers=HEADERS)
-            html = res.text
-
-        # tìm m3u8
-        m3u8 = re.search(r'https?://[^\s"\']+\.m3u8', html)
-        if m3u8:
-            return m3u8.group(0)
-
-    except Exception as e:
-        print("Error:", e)
+    # tìm m3u8
+    match = re.search(r'https?://[^\s"\']+\.m3u8', html)
+    if match:
+        return match.group(0)
 
     return None
 
 
-def create_m3u(channels):
+def create_m3u(link):
     content = "#EXTM3U\n"
-
-    for name, link in channels:
-        content += f'#EXTINF:-1 group-title="Khandaia",{name}\n{link}\n'
+    content += f'#EXTINF:-1 group-title="Khandaia",Live\n{link}\n'
 
     with open("playlist.m3u", "w", encoding="utf-8") as f:
         f.write(content)
 
 
 def main():
-    print("🔍 Đang lấy danh sách trận...")
+    print("🔍 Đang lấy m3u8...")
 
-    matches = get_match_links()
-    channels = []
+    link = get_m3u8()
 
-    for i, link in enumerate(matches):
-        print(f"🎯 Đang xử lý: {link}")
-
-        m3u8 = extract_m3u8(link)
-        if m3u8:
-            channels.append((f"Match {i+1}", m3u8))
-            print("✅ Lấy được m3u8")
-        else:
-            print("❌ Không có m3u8")
-
-    if channels:
-        create_m3u(channels)
-        print("🔥 Đã tạo playlist.m3u")
+    if link:
+        print("✅ Lấy được:", link)
+        create_m3u(link)
     else:
-        print("❌ Không lấy được link nào")
+        print("❌ Không lấy được m3u8")
 
 
 if __name__ == "__main__":
