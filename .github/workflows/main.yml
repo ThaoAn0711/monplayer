@@ -1,25 +1,28 @@
-name: Tự động cập nhật M3U
+name: Auto Run Bot
+
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/5 * * * *'   # chạy mỗi 5 phút (có thể sửa)
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run Crawler
+
+      - name: Show files (debug)
+        run: ls -R
+
+      - name: Run Bot
         run: python bot.py
-      - name: Commit and Push
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add playlist.m3u
-          git commit -m "Update M3U" || exit 0
-          git push
