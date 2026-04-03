@@ -23,15 +23,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Install Chrome
-        run: |
-          sudo apt update
-          sudo apt install -y chromium
-
-      - name: Install ChromeDriver
-        run: |
-          sudo apt install -y chromium-chromedriver
-
       - name: Run Bot
         run: python bot.py
 
