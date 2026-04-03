@@ -1,5 +1,6 @@
 import time
 import json
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -12,7 +13,7 @@ def get_m3u8():
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
 
-    # bật log network
+    # bật bắt network
     options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
     driver = webdriver.Chrome(
@@ -23,18 +24,21 @@ def get_m3u8():
     driver.get(URL)
     time.sleep(15)
 
+    # lấy log network
     logs = driver.get_log("performance")
-
     driver.quit()
 
     for log in logs:
-        message = json.loads(log["message"])["message"]
+        try:
+            message = json.loads(log["message"])["message"]
 
-        if message["method"] == "Network.responseReceived":
-            url = message["params"]["response"]["url"]
+            if message["method"] == "Network.responseReceived":
+                url = message["params"]["response"]["url"]
 
-            if ".m3u8" in url:
-                return url
+                if ".m3u8" in url:
+                    return url
+        except:
+            continue
 
     return None
 
@@ -51,14 +55,18 @@ def create_m3u(link):
 
 
 def main():
-    print("🔍 Bắt m3u8 từ network...")
+    print("🔍 Đang lấy m3u8 từ network...")
 
-    link = get_m3u8()
+    try:
+        link = get_m3u8()
+    except Exception as e:
+        print("❌ Lỗi:", e)
+        link = None
 
     if link:
-        print("✅ Lấy được m3u8:", link)
+        print("✅ Lấy được:", link)
     else:
-        print("❌ Không lấy được")
+        print("❌ Không lấy được m3u8")
 
     create_m3u(link)
 
