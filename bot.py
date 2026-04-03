@@ -1,100 +1,76 @@
-import time
-import json
+import requests
 import re
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
-BASE_URL = "https://khandaia2.me"
+BASE = "https://khandaia2.me"
 
-def get_match_link(driver):
-    driver.get(BASE_URL)
-    time.sleep(5)
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-    links = driver.find_elements("tag name", "a")
+def get_match():
+    html = requests.get(BASE, headers=headers).text
 
-    for link in links:
-        href = link.get_attribute("href")
-        if href and "truc-tiep" in href:
-            return href
+    matches = re.findall(r'href="(https://khandaia2.me/[^"]+truc-tiep[^"]+)"', html)
+
+    if matches:
+        return matches[0]
+    return None
+
+
+def get_m3u8(url):
+    html = requests.get(url, headers=headers).text
+
+    # tìm iframe
+    iframe = re.search(r'<iframe.*?src="([^"]+)"', html)
+    if iframe:
+        iframe_url = iframe.group(1)
+
+        print("👉 iframe:", iframe_url)
+
+        iframe_html = requests.get(iframe_url, headers=headers).text
+
+        m3u8 = re.search(r'https://[^"]+\.m3u8[^"]*', iframe_html)
+        if m3u8:
+            return m3u8.group(0)
+
+    # fallback tìm trực tiếp
+    m3u8 = re.search(r'https://[^"]+\.m3u8[^"]*', html)
+    if m3u8:
+        return m3u8.group(0)
 
     return None
 
 
-def get_m3u8(match_url):
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-
-    options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
-
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
-
-    print("🎯 Vào trận:", match_url)
-
-    driver.get(match_url)
-    time.sleep(15)
-
-    logs = driver.get_log("performance")
-    driver.quit()
-
-    for log in logs:
-        try:
-            message = json.loads(log["message"])["message"]
-
-            if message["method"] == "Network.responseReceived":
-                url = message["params"]["response"]["url"]
-
-                if ".m3u8" in url:
-                    return url
-        except:
-            continue
-
-    return None
-
-
-def create_m3u(link):
+def save(link):
     if not link:
         link = "http://0.0.0.0"
 
-    content = "#EXTM3U\n"
-    content += f'#EXTINF:-1 group-title="Khandaia",Live\n{link}\n'
-
-    with open("playlist.m3u", "w", encoding="utf-8") as f:
-        f.write(content)
+    with open("playlist.m3u", "w") as f:
+        f.write("#EXTM3U\n")
+        f.write('#EXTINF:-1 group-title="Khandaia",Live\n')
+        f.write(link)
 
 
 def main():
-    print("🔍 Đang tìm trận...")
+    print("🔍 Tìm trận...")
 
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")
+    match = get_match()
 
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
-
-    match_url = get_match_link(driver)
-    driver.quit()
-
-    if not match_url:
-        print("❌ Không tìm thấy trận")
-        create_m3u(None)
+    if not match:
+        print("❌ Không có trận")
+        save(None)
         return
 
-    link = get_m3u8(match_url)
+    print("🎯 Trận:", match)
+
+    link = get_m3u8(match)
 
     if link:
         print("✅ M3U8:", link)
     else:
-        print("❌ Không lấy được m3u8")
+        print("❌ Không có m3u8")
 
-    create_m3u(link)
+    save(link)
 
 
 if __name__ == "__main__":
