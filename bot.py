@@ -5,15 +5,28 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-URL = "https://khandaia2.me"
+BASE_URL = "https://khandaia2.me"
 
-def get_m3u8():
+def get_match_link(driver):
+    driver.get(BASE_URL)
+    time.sleep(5)
+
+    links = driver.find_elements("tag name", "a")
+
+    for link in links:
+        href = link.get_attribute("href")
+        if href and "truc-tiep" in href:
+            return href
+
+    return None
+
+
+def get_m3u8(match_url):
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
 
-    # bật bắt network
     options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
 
     driver = webdriver.Chrome(
@@ -21,10 +34,11 @@ def get_m3u8():
         options=options
     )
 
-    driver.get(URL)
+    print("🎯 Vào trận:", match_url)
+
+    driver.get(match_url)
     time.sleep(15)
 
-    # lấy log network
     logs = driver.get_log("performance")
     driver.quit()
 
@@ -55,16 +69,28 @@ def create_m3u(link):
 
 
 def main():
-    print("🔍 Đang lấy m3u8 từ network...")
+    print("🔍 Đang tìm trận...")
 
-    try:
-        link = get_m3u8()
-    except Exception as e:
-        print("❌ Lỗi:", e)
-        link = None
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")
+
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=options
+    )
+
+    match_url = get_match_link(driver)
+    driver.quit()
+
+    if not match_url:
+        print("❌ Không tìm thấy trận")
+        create_m3u(None)
+        return
+
+    link = get_m3u8(match_url)
 
     if link:
-        print("✅ Lấy được:", link)
+        print("✅ M3U8:", link)
     else:
         print("❌ Không lấy được m3u8")
 
